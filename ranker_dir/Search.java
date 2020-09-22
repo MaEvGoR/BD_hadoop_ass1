@@ -165,7 +165,7 @@ public class Search extends Configured implements Tool {
 		vectorize.setNumReduceTasks(0);
 	    vectorize.setOutputKeyClass(Text.class);
 	    vectorize.setOutputValueClass(Text.class);
-	    String vocab_path = index_path.concat("/vocab");
+	    String vocab_path = index_path.concat("/indexes/vocab");
 	    FileInputFormat.addInputPath(vectorize, new Path(vocab_path));
 	    FileOutputFormat.setOutputPath(vectorize, new Path("temp/"));
 		
@@ -198,7 +198,7 @@ public class Search extends Configured implements Tool {
 	    assign_relevance.setReducerClass(RelevanceFunctionReduce.class);;
 	    assign_relevance.setOutputKeyClass(IntWritable.class);
 	    assign_relevance.setOutputValueClass(DoubleWritable.class);
-	    String vector_path = index_path.concat("/main_index");
+	    String vector_path = index_path.concat("/indexes/wiki_vector");
 	    FileInputFormat.addInputPath(assign_relevance, new Path(vector_path));
 	    FileOutputFormat.setOutputPath(assign_relevance, new Path("temp3/"));
 	    
