@@ -1,1 +1,1 @@
-scp "$1" lagos@10.90.138.32:~/my_code
+scp "$1" lagos@10.90.138.32:~/my_code/Indexer
