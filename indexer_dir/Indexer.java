@@ -125,6 +125,7 @@ public class Indexer {
                     JSONObject wiki_word_info = word_info.getJSONObject(current_key);
                     wiki_word_info.put("tf/idf", wiki_word_info.getInt("tf") / (float) idf);
                     wiki_word_info.put("wiki_id", current_key);
+                    wiki_word_info.put("word_id", current_word_id);
                     word_info.put(current_key, wiki_word_info);
 
                     multipleOutputs.write("wikivector", new Text(current_key), new Text(wiki_word_info.toString()), "wiki_vector/");
@@ -135,7 +136,7 @@ public class Indexer {
 
             try {
                 JSONObject json_vocab = new JSONObject();
-                json_vocab.put("id", word_id);
+                json_vocab.put("id", current_word_id);
                 json_vocab.put("word", key);
                 json_vocab.put("idf", idf);
 
