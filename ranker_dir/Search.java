@@ -9,7 +9,9 @@ import java.util.StringTokenizer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
@@ -120,18 +122,27 @@ public class Search extends Configured implements Tool {
 			if (top_N!=0) {
 				for (IntWritable value : list) {
 					String doc_title = " ";
-					BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(pt)));
-					while(br.ready()==true) {
-						String line = br.readLine();
-						String [] split = line.split(" ");
-						Integer doc_id = Integer.parseInt(split[0]);
-						if(doc_id == value.get()) {
-							String s = split[1];
-							JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-							doc_title = obj.getString("title");
-							break;
+					RemoteIterator<LocatedFileStatus> fileStatusListIterator = fs.listFiles(
+				            pt, true);
+				    while(fileStatusListIterator.hasNext()){
+				        LocatedFileStatus fileStatus = fileStatusListIterator.next();
+				        Path pt2 = fileStatus.getPath();
+				        BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(pt2)));
+				        while(br.ready()==true) {
+							String line = br.readLine();
+							String [] split = line.split(" ");
+							Integer doc_id = Integer.parseInt(split[0]);
+							if(doc_id == value.get()) {
+								String s = split[1];
+								JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+								doc_title = obj.getString("title");
+								break;
+							}
 						}
-					}
+				        if (doc_title.compareTo(" ")!=0) {
+				        	break;
+				        };
+				    }
 					context.write(value, new Text(doc_title));
 					top_N--;
 				}
@@ -187,7 +198,7 @@ public class Search extends Configured implements Tool {
 	    assign_relevance.setReducerClass(RelevanceFunctionReduce.class);;
 	    assign_relevance.setOutputKeyClass(IntWritable.class);
 	    assign_relevance.setOutputValueClass(DoubleWritable.class);
-	    String vector_path = index_path.concat("/wiki_vector");
+	    String vector_path = index_path.concat("/main_index");
 	    FileInputFormat.addInputPath(assign_relevance, new Path(vector_path));
 	    FileOutputFormat.setOutputPath(assign_relevance, new Path("temp3/"));
 	    
@@ -199,7 +210,7 @@ public class Search extends Configured implements Tool {
 	    Configuration conf4 = new Configuration();
 	    
 		FileSystem fs = FileSystem.get(conf4);
-		String info_path = index_path.concat("/wiki_info");
+		String info_path = index_path.concat("/wiki_info/");
 		Path pt = new Path(info_path);
 		ReduceRanker.fs = fs;
 		ReduceRanker.pt = pt;
@@ -214,7 +225,7 @@ public class Search extends Configured implements Tool {
 	    FileOutputFormat.setOutputPath(rank, new Path("output/"));
 	    rank.setSortComparatorClass(DecreasingComparator.class);
 	    
-	    ControlledJob job4 = new ControlledJob(conf3);
+	    ControlledJob job4 = new ControlledJob(conf4);
 	    job4.setJob(rank);
 	    job4.addDependingJob(job3);
 	    jobControl.addJob(job4);
@@ -224,7 +235,23 @@ public class Search extends Configured implements Tool {
 	    while(!jobControl.allFinished()) {
 	    	
 	    }
-
+	    
+	    Configuration conf5 = new Configuration();
+	    fs = FileSystem.get(conf5);
+	    RemoteIterator<LocatedFileStatus> fileStatusListIterator = fs.listFiles(
+	            new Path("output"), true);
+	    while(fileStatusListIterator.hasNext()){
+	        LocatedFileStatus fileStatus = fileStatusListIterator.next();
+	        Path pt2 = fileStatus.getPath();
+	        BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(pt2)));
+	        while(br.ready()) {
+	        	String line = br.readLine();
+				String [] split = line.split("	");
+				System.out.println(split[1]);
+	        }
+	    }
+	    
+	    
 	    return 0;
 	}
 	
@@ -244,6 +271,6 @@ public class Search extends Configured implements Tool {
 			System.exit(0);
 	     }
 		int exitCode = ToolRunner.run(new Search(), args);  
-		 System.exit(exitCode);
+		System.exit(exitCode);
 	}
 }
