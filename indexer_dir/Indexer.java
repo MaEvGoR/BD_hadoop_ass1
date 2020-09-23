@@ -40,6 +40,11 @@ public class Indexer {
                 wiki_id_info.put("url", one_doc.getString("url"));
                 wiki_id_info.put("title", one_doc.getString("title"));
 
+                String my_text = one_doc.getString("text").replaceAll("[^a-z]", " ");
+                StringTokenizer itr = new StringTokenizer(my_text);
+
+                wiki_id_info.put("length", itr.countTokens());
+
                 IntWritable doc_id = new IntWritable(one_doc.getInt("id"));
                 Text info = new Text(wiki_id_info.toString());
                 context.write(doc_id, info);
