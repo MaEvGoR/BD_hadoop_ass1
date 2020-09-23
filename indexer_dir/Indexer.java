@@ -43,7 +43,15 @@ public class Indexer {
                 String my_text = one_doc.getString("text").replaceAll("[^a-z]", " ");
                 StringTokenizer itr = new StringTokenizer(my_text);
 
-                wiki_id_info.put("length", itr.countTokens());
+                int wiki_len = 0;
+                while (itr.hasMoreTokens()) {
+                    String current_word = itr.nextToken().toLowerCase();
+                    if (current_word != "") {
+                        wiki_len += 1;
+                    }
+                }
+
+                wiki_id_info.put("length", wiki_len);
 
                 IntWritable doc_id = new IntWritable(one_doc.getInt("id"));
                 Text info = new Text(wiki_id_info.toString());
