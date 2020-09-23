@@ -41,24 +41,21 @@ public class Search extends Configured implements Tool {
 		
 		// Mappers read the vocabulary if the word is present in a query record the ID
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			
+			try{
 			String s = value.toString();
-                        try {
-				JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-				String word = obj.getString("word");
-			} catch(JSONException e) {
-				System.out.println("Error");
-			} 
+			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+			String word = obj.getString("word");
+			System.out.println("Error");
 			
 			String [] query_split = query.split(" ");
 			for (String temp : query_split) {
 				if (temp.compareTo(word) == 0) {
-					try {
-						query_indeces.add(Integer.parseInt(obj.getString("id")));
-					} catch(JSONException E) {
-						System.out.println("Error");
-					} 
+					query_indeces.add(Integer.parseInt(obj.getString("id")));
+					System.out.println("Error");
 				}
+			}
+			} catch(JSONException E) {
+				System.out.println("Error");
 			}
 		}		
 	}
@@ -74,17 +71,18 @@ public class Search extends Configured implements Tool {
 		public static int documents = 0;
 		
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException{
-			String s = value.toString();
 			try {
-				JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-				int length = obj.getInt("length");
-				Integer doc_id = obj.getInt("wiki_id");
-			} catch(JSONException e) {
-				System.out.println("Error");
-			}
+			String s = value.toString();
+			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+			int length = obj.getInt("length");
+			Integer doc_id = obj.getInt("wiki_id");
+			System.out.println("Error");
 			length_map.put(doc_id, length);
 			total_length += length;
 			documents ++;
+			} catch(JSONException E) {
+				System.out.println("Error");
+			}
 		}
 	}
 	
@@ -97,18 +95,14 @@ public class Search extends Configured implements Tool {
 		public final static int k1 = 2;
 		
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException{
-			
+			try{
 			// Extract necessary info from JSON
 			String s = value.toString();
-			try {
-				JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-				Integer doc_id = obj.getInt("wiki_id");
-				Integer word_id = obj.getInt("word_id");
-				Double tf = obj.optDouble("tf");
-				Double tf_dtf = obj.optDouble("tf/idf");
-			} catch(JSONException E) {
-				System.out.println("Error");
-			} 
+			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+			Integer doc_id = obj.getInt("wiki_id");
+			Integer word_id = obj.getInt("word_id");
+			Double tf = obj.optDouble("tf");
+			Double tf_dtf = obj.optDouble("tf/idf");
 			
 			// If the word is in the query compute relevance
 			if (QueryVectorizor.query_indeces.contains(word_id)) {
@@ -119,7 +113,9 @@ public class Search extends Configured implements Tool {
 				Double relevance = tf_dtf * (nom / denom);
 				context.write(new IntWritable(doc_id), new DoubleWritable(relevance));
 			}			
-			
+			} catch(JSONException E) {
+				System.out.println("Error");
+			}
 		}
 	}
 	
@@ -153,6 +149,7 @@ public class Search extends Configured implements Tool {
 		public static Path pt;
 		
 		public void reduce(DoubleWritable key, Iterable<IntWritable> list, Context context) throws java.io.IOException, InterruptedException {
+			try{
 			// Making sure we output only the necessary amount of files
 			if (top_N!=0) {
 				// Reading every file that maps document id to its title, retreiving the title and returning it
@@ -169,14 +166,10 @@ public class Search extends Configured implements Tool {
 							String [] split = line.split(" ");
 							Integer doc_id = Integer.parseInt(split[0]);
 							if(doc_id == value.get()) {
-								String s = split[1];
-								try {
-									JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-									doc_title = obj.getString("title");
-								} catch(JSONException e) {
-									System.out.println("Error");
-								}
-								break;
+							String s = split[1];
+							JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+							doc_title = obj.getString("title");
+							break;
 							}
 						}
 				        if (doc_title.compareTo(" ")!=0) {
@@ -186,6 +179,9 @@ public class Search extends Configured implements Tool {
 					context.write(value, new Text(doc_title));
 					top_N--;
 				}
+			}
+			} catch(JSONException E) {
+				System.out.println("Error");
 			}
 		}
 	}
