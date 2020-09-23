@@ -26,6 +26,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.json.JSONObject;
+import org.json.JSONException;
 
 public class Search extends Configured implements Tool {
 	
@@ -42,13 +43,21 @@ public class Search extends Configured implements Tool {
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			
 			String s = value.toString();
-			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-			String word = obj.getString("word");
+                        try {
+				JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+				String word = obj.getString("word");
+			} catch(JSONException e) {
+				System.out.println("Error");
+			} 
 			
 			String [] query_split = query.split(" ");
 			for (String temp : query_split) {
 				if (temp.compareTo(word) == 0) {
-					query_indeces.add(Integer.parseInt(obj.getString("id")));
+					try {
+						query_indeces.add(Integer.parseInt(obj.getString("id")));
+					} catch(JSONException E) {
+						System.out.println("Error");
+					} 
 				}
 			}
 		}		
@@ -66,9 +75,13 @@ public class Search extends Configured implements Tool {
 		
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException{
 			String s = value.toString();
-			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-			int length = obj.getInt("length");
-			Integer doc_id = obj.getInt("wiki_id");
+			try {
+				JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+				int length = obj.getInt("length");
+				Integer doc_id = obj.getInt("wiki_id");
+			} catch(JSONException e) {
+				System.out.println("Error");
+			}
 			length_map.put(doc_id, length);
 			total_length += length;
 			documents ++;
@@ -87,11 +100,15 @@ public class Search extends Configured implements Tool {
 			
 			// Extract necessary info from JSON
 			String s = value.toString();
-			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-			Integer doc_id = obj.getInt("wiki_id");
-			Integer word_id = obj.getInt("word_id");
-			Double tf = obj.optDouble("tf");
-			Double tf_dtf = obj.optDouble("tf/idf");
+			try {
+				JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+				Integer doc_id = obj.getInt("wiki_id");
+				Integer word_id = obj.getInt("word_id");
+				Double tf = obj.optDouble("tf");
+				Double tf_dtf = obj.optDouble("tf/idf");
+			} catch(JSONException E) {
+				System.out.println("Error");
+			} 
 			
 			// If the word is in the query compute relevance
 			if (QueryVectorizor.query_indeces.contains(word_id)) {
@@ -153,8 +170,12 @@ public class Search extends Configured implements Tool {
 							Integer doc_id = Integer.parseInt(split[0]);
 							if(doc_id == value.get()) {
 								String s = split[1];
-								JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-								doc_title = obj.getString("title");
+								try {
+									JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+									doc_title = obj.getString("title");
+								} catch(JSONException e) {
+									System.out.println("Error");
+								}
 								break;
 							}
 						}
