@@ -29,11 +29,16 @@ import org.json.JSONObject;
 
 public class Search extends Configured implements Tool {
 	
+	// Creating a vector representation of a query
 	public static class QueryVectorizor extends Mapper<LongWritable, Text, Text, Text>{
 		
+		// Storing the text of the query
 		public static String query;
+		
+		// Storing the IDs of the words that appear in a query
 		public static Set<Integer> query_indeces = new HashSet<Integer>();
 		
+		// Mappers read the vocabulary if the word is present in a query record the ID
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			
 			String s = value.toString();
@@ -49,9 +54,13 @@ public class Search extends Configured implements Tool {
 		}		
 	}
 	
+	// Reading document lengths into the memory
 	public static class LengthReader extends Mapper<LongWritable, Text, Text, Text>{
 		
+		// Map between the document ID and its length
 		public static Map<Integer, Integer> length_map = new HashMap<Integer, Integer>();
+		
+		// Necessary to compute the average length later on
 		public static int total_length = 0;
 		public static int documents = 0;
 		
@@ -66,13 +75,17 @@ public class Search extends Configured implements Tool {
 		}
 	}
 	
+	// Read the vectorized representation of the documents per each word, and record return part of the relevance
+	// function associated with this word
 	public static class RelevanceFunctionMap extends Mapper<LongWritable, Text, IntWritable, DoubleWritable> {
-
+		
+		// Default parameters
 		public final static double b = 0.75;
 		public final static int k1 = 2;
 		
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException{
 			
+			// Extract necessary info from JSON
 			String s = value.toString();
 			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
 			Integer doc_id = obj.getInt("wiki_id");
@@ -80,6 +93,7 @@ public class Search extends Configured implements Tool {
 			Double tf = obj.optDouble("tf");
 			Double tf_dtf = obj.optDouble("tf/idf");
 			
+			// If the word is in the query compute relevance
 			if (QueryVectorizor.query_indeces.contains(word_id)) {
 				Integer d = LengthReader.length_map.get(doc_id);
 				Double avglen = ((double)LengthReader.total_length)/((double)LengthReader.documents);
@@ -92,6 +106,7 @@ public class Search extends Configured implements Tool {
 		}
 	}
 	
+	// Reducer sums up relevances for each document
 	public static class RelevanceFunctionReduce extends Reducer<IntWritable, DoubleWritable, IntWritable, DoubleWritable>{
 		public void reduce(IntWritable key, Iterable<DoubleWritable> list, Context context) throws java.io.IOException, InterruptedException {
 			Double sum = 0.0;
@@ -102,6 +117,8 @@ public class Search extends Configured implements Tool {
 		}
 	}
 	
+	// Ranking of the documents is done by employing the build in sorting technique when the data
+	// is in transit between a Mapper and a Reducer
 	public static class MapRanker extends Mapper<LongWritable, Text, DoubleWritable, IntWritable>{
 		public void map(LongWritable key, Text value, Context context) throws java.io.IOException, InterruptedException {
 			String line = value.toString();
@@ -119,7 +136,9 @@ public class Search extends Configured implements Tool {
 		public static Path pt;
 		
 		public void reduce(DoubleWritable key, Iterable<IntWritable> list, Context context) throws java.io.IOException, InterruptedException {
+			// Making sure we output only the necessary amount of files
 			if (top_N!=0) {
+				// Reading every file that maps document id to its title, retreiving the title and returning it
 				for (IntWritable value : list) {
 					String doc_title = " ";
 					RemoteIterator<LocatedFileStatus> fileStatusListIterator = fs.listFiles(
@@ -150,6 +169,7 @@ public class Search extends Configured implements Tool {
 		}
 	}
 	
+	// Controller class for MapReduce jobs
 	public int run(String [] args) throws Exception{
 		
 		JobControl jobControl = new JobControl("chain");
@@ -255,6 +275,7 @@ public class Search extends Configured implements Tool {
 	    return 0;
 	}
 	
+	// Run everything and detect mistakes in argument usage
 	public static void main(String[] args) throws Exception {
 		if (args.length!=3) {
 			System.out.printf("Incorrect number of arguments\nProper usage: "
