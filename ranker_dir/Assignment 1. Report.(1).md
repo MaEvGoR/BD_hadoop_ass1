@@ -12,7 +12,7 @@ In this assigmnment we were tasked with designing a simple search engine using M
 
 Generally, we followed the model presented in the assignment description with a few alternations to address specific implementation issues. 
 
-############### IMAGE #############
+![Alt text](ranker_dir/Screenshot from 2020-09-23 07-37-54.png?raw=true "Title")
 
 We decided to split the workload the following way: Maxim was developing the *Indexing Engine*, while Alexandr worked on the *Ranking Engine*. We reckon that such approach is logical since both parts can be tested independently on a smaller text corpus. The final testing on Wikipedia files combining both parts was performed by Maxim.
 
