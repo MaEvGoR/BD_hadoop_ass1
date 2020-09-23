@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.StringTokenizer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -36,13 +35,15 @@ public class Search extends Configured implements Tool {
 		public static Set<Integer> query_indeces = new HashSet<Integer>();
 		
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			StringTokenizer itr = new StringTokenizer(value.toString());
-			String word_id = itr.nextToken();
-			String word = itr.nextToken();
+			
+			String s = value.toString();
+			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+			String word = obj.getString("word");
+			
 			String [] query_split = query.split(" ");
 			for (String temp : query_split) {
 				if (temp.compareTo(word) == 0) {
-					query_indeces.add(Integer.parseInt(word_id));
+					query_indeces.add(Integer.parseInt(obj.getString("id")));
 				}
 			}
 		}		
@@ -56,10 +57,9 @@ public class Search extends Configured implements Tool {
 		
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException{
 			String s = value.toString();
-			String [] split = s.split(" ");
-			Integer doc_id = Integer.parseInt(split[0]);
-			JSONObject obj = new JSONObject(split[1]);
+			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
 			int length = obj.getInt("length");
+			Integer doc_id = obj.getInt("wiki_id");
 			length_map.put(doc_id, length);
 			total_length += length;
 			documents ++;
@@ -78,7 +78,7 @@ public class Search extends Configured implements Tool {
 			Integer doc_id = obj.getInt("wiki_id");
 			Integer word_id = obj.getInt("word_id");
 			Double tf = obj.optDouble("tf");
-			Double tf_dtf = obj.optDouble("tf/dtf");
+			Double tf_dtf = obj.optDouble("tf/idf");
 			
 			if (QueryVectorizor.query_indeces.contains(word_id)) {
 				Integer d = LengthReader.length_map.get(doc_id);
