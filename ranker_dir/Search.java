@@ -30,96 +30,66 @@ import org.json.JSONException;
 
 public class Search extends Configured implements Tool {
 	
-	// Creating a vector representation of a query
 	public static class QueryVectorizor extends Mapper<LongWritable, Text, Text, Text>{
 		
-		// Storing the text of the query
-		public static String query;
-		
-		// Storing the IDs of the words that appear in a query
+		public static String query = new String();
 		public static Set<Integer> query_indeces = new HashSet<Integer>();
 		
-		// Mappers read the vocabulary if the word is present in a query record the ID
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			try{
-			String s = value.toString();
-			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-			String word = obj.getString("word");
-			System.out.println("Error");
-			
-			String [] query_split = query.split(" ");
-			for (String temp : query_split) {
-				if (temp.compareTo(word) == 0) {
-					query_indeces.add(Integer.parseInt(obj.getString("id")));
-					System.out.println("Error");
-				}
-			}
-			} catch(JSONException E) {
-				System.out.println("Error");
-			}
+				String s = value.toString();
+				JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+				String word = obj.getString("word");
+				
+				String [] query_split = query.split(" ");
+				for (String temp : query_split) {
+					if (temp.compareTo(word) == 0) {
+						query_indeces.add(Integer.parseInt(obj.getString("id")));
+					}
+				} 
 		}		
 	}
 	
-	// Reading document lengths into the memory
 	public static class LengthReader extends Mapper<LongWritable, Text, Text, Text>{
 		
-		// Map between the document ID and its length
 		public static Map<Integer, Integer> length_map = new HashMap<Integer, Integer>();
-		
-		// Necessary to compute the average length later on
 		public static int total_length = 0;
 		public static int documents = 0;
 		
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException{
-			try {
-			String s = value.toString();
-			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-			int length = obj.getInt("length");
-			Integer doc_id = obj.getInt("wiki_id");
-			System.out.println("Error");
-			length_map.put(doc_id, length);
-			total_length += length;
-			documents ++;
-			} catch(JSONException E) {
-				System.out.println("Error");
-			}
+				String s = value.toString();
+				JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+				int length = obj.getInt("length");
+				Integer doc_id = obj.getInt("wiki_id");
+				length_map.put(doc_id, length);
+				total_length += length;
+				documents ++;
 		}
 	}
 	
-	// Read the vectorized representation of the documents per each word, and record return part of the relevance
-	// function associated with this word
 	public static class RelevanceFunctionMap extends Mapper<LongWritable, Text, IntWritable, DoubleWritable> {
-		
-		// Default parameters
+
 		public final static double b = 0.75;
 		public final static int k1 = 2;
 		
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException{
-			try{
-			// Extract necessary info from JSON
-			String s = value.toString();
-			JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-			Integer doc_id = obj.getInt("wiki_id");
-			Integer word_id = obj.getInt("word_id");
-			Double tf = obj.optDouble("tf");
-			Double tf_dtf = obj.optDouble("tf/idf");
-			
-			// If the word is in the query compute relevance
-			if (QueryVectorizor.query_indeces.contains(word_id)) {
-				Integer d = LengthReader.length_map.get(doc_id);
-				Double avglen = ((double)LengthReader.total_length)/((double)LengthReader.documents);
-				Double nom = tf * (k1 + 1);
-				Double denom = tf + k1 * (1 - b + b * (d / avglen));
-				Double relevance = tf_dtf * (nom / denom);
-				context.write(new IntWritable(doc_id), new DoubleWritable(relevance));
-			}			
-			} catch(JSONException E) {
-				System.out.println("Error");
-			}
+				String s = value.toString();
+				JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+				Integer doc_id = obj.getInt("wiki_id");
+				Integer word_id = obj.getInt("word_id");
+				Double tf = obj.optDouble("tf");
+				Double tf_dtf = obj.optDouble("tf/idf");
+				
+				if (QueryVectorizor.query_indeces.contains(word_id)) {
+					Integer d = LengthReader.length_map.get(doc_id);
+					Double avglen = ((double)LengthReader.total_length)/((double)LengthReader.documents);
+					Double nom = tf * (k1 + 1);
+					Double denom = tf + k1 * (1 - b + b * (d / avglen));
+					Double relevance = tf_dtf * (nom / denom);
+					context.write(new IntWritable(doc_id), new DoubleWritable(relevance));
+				}			
 		}
 	}
 	
-	// Reducer sums up relevances for each document
 	public static class RelevanceFunctionReduce extends Reducer<IntWritable, DoubleWritable, IntWritable, DoubleWritable>{
 		public void reduce(IntWritable key, Iterable<DoubleWritable> list, Context context) throws java.io.IOException, InterruptedException {
 			Double sum = 0.0;
@@ -130,8 +100,6 @@ public class Search extends Configured implements Tool {
 		}
 	}
 	
-	// Ranking of the documents is done by employing the build in sorting technique when the data
-	// is in transit between a Mapper and a Reducer
 	public static class MapRanker extends Mapper<LongWritable, Text, DoubleWritable, IntWritable>{
 		public void map(LongWritable key, Text value, Context context) throws java.io.IOException, InterruptedException {
 			String line = value.toString();
@@ -144,49 +112,42 @@ public class Search extends Configured implements Tool {
 	
 	public static class ReduceRanker extends Reducer<DoubleWritable, IntWritable, IntWritable, Text>{
 		
-		public static Integer top_N;
+		public static Integer top_N = 0;
 		public static FileSystem fs;
 		public static Path pt;
 		
 		public void reduce(DoubleWritable key, Iterable<IntWritable> list, Context context) throws java.io.IOException, InterruptedException {
-			try{
-			// Making sure we output only the necessary amount of files
-			if (top_N!=0) {
-				// Reading every file that maps document id to its title, retreiving the title and returning it
-				for (IntWritable value : list) {
-					String doc_title = " ";
-					RemoteIterator<LocatedFileStatus> fileStatusListIterator = fs.listFiles(
-				            pt, true);
-				    while(fileStatusListIterator.hasNext()){
-				        LocatedFileStatus fileStatus = fileStatusListIterator.next();
-				        Path pt2 = fileStatus.getPath();
-				        BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(pt2)));
-				        while(br.ready()==true) {
-							String line = br.readLine();
-							String [] split = line.split(" ");
-							Integer doc_id = Integer.parseInt(split[0]);
-							if(doc_id == value.get()) {
-							String s = split[1];
-							JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
-							doc_title = obj.getString("title");
-							break;
+				if (top_N!=0) {
+					for (IntWritable value : list) {
+						String doc_title = " ";
+						RemoteIterator<LocatedFileStatus> fileStatusListIterator = fs.listFiles(
+					            pt, true);
+					    while(fileStatusListIterator.hasNext()){
+					        LocatedFileStatus fileStatus = fileStatusListIterator.next();
+					        Path pt2 = fileStatus.getPath();
+					        BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(pt2)));
+					        while(br.ready()==true) {
+								String line = br.readLine();
+								String [] split = line.split(" ");
+								Integer doc_id = Integer.parseInt(split[0]);
+								if(doc_id == value.get()) {
+									String s = split[1];
+									JSONObject obj = new JSONObject(s.substring(s.indexOf('{')));
+									doc_title = obj.getString("title");
+									break;
+								}
 							}
-						}
-				        if (doc_title.compareTo(" ")!=0) {
-				        	break;
-				        };
-				    }
-					context.write(value, new Text(doc_title));
-					top_N--;
+					        if (doc_title.compareTo(" ")!=0) {
+					        	break;
+					        };
+					    }
+						context.write(value, new Text(doc_title));
+						top_N--;
+					}
 				}
-			}
-			} catch(JSONException E) {
-				System.out.println("Error");
-			}
 		}
 	}
 	
-	// Controller class for MapReduce jobs
 	public int run(String [] args) throws Exception{
 		
 		JobControl jobControl = new JobControl("chain");
@@ -292,7 +253,6 @@ public class Search extends Configured implements Tool {
 	    return 0;
 	}
 	
-	// Run everything and detect mistakes in argument usage
 	public static void main(String[] args) throws Exception {
 		if (args.length!=3) {
 			System.out.printf("Incorrect number of arguments\nProper usage: "
